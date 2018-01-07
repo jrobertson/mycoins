@@ -8,10 +8,13 @@ require 'cryptocoin_fanboi'
 
 
 class MyCoins
+  
+  attr_accessor :mycurrency
 
-  def initialize(source, date: nil, debug: false, mycurrency: 'USD')
+  def initialize(source, date: nil, debug: false, 
+                 mycurrency: 'USD', filepath: 'mycoins')
 
-    @debug = debug    
+    @debug, @filepath = debug, filepath
     
     @jer = JustExchangeRates.new(base: 'USD')
 
@@ -42,15 +45,86 @@ class MyCoins
     @ccf = CryptocoinFanboi.new(watch: mycoins)
 
   end
+  
+  def archive()
+
+    filepath = File.join(@filepath, Time.now.year.to_s, 
+                         Time.now.strftime("c%d%m%Y.xml"))
+    FileUtils.mkdir_p File.dirname(filepath)
+    File.write filepath, to_xml
+    
+  end
 
   def to_s()
     @ccf.to_s
   end
   
+  # return the value of a coin given either the qty or purchase amount in BTC
+  #
+  def price(coin_name, qty, btc: nil, date: nil)
+    coin = @ccf.find(coin_name)
+    "%.2f %s" % [(coin.price_usd.to_f * qty) * @jer.rate(@mycurrency), 
+                 @mycurrency]
+  end
+  
   def portfolio()
         
+    r = build_portfolio(@dx.title)
+    format_portfolio(r)
+
+  end
+  
+  def to_xml()
+    
+    r = build_portfolio(@dx.title)
+    dx = Dynarex.new    
+    dx.import r.records
+    
+    h = r.to_h
+    h.delete :records
+    dx.summary.merge!(h)
+    
+    dx.to_xml pretty: true
+    
+  end
+  
+  private
+  
+  def build_portfolio(title)
+    
+    if @portfolio and \
+        DateTime.parse(@portfolio.datetime) + 60 > DateTime.now then
+      return @portfolio
+    end
+    
+    a = build_records()
+    
+    invested = sum(a, :paid)
+    gross_profit_list, losses_list = a.partition {|x| x[:profit].to_f > 0}
+    gross_profit, losses = [gross_profit_list, losses_list]\
+        .map{|x| sum(x, :profit)}
+
+    h = {
+      title: title,
+      mycurrency: @mycurrency,
+      records: a,
+      datetime: Time.now.strftime("%d/%m/%Y at %H:%M%p"),
+      invested: invested,
+      revenue: sum(a, ('value_' + @mycurrency.downcase).to_sym),      
+      gross_profit: gross_profit.round(2), losses: losses.round(2),
+      pct_gross_profit: (100 / (invested / gross_profit)).round(2),
+      pct_losses: (100 / (invested / losses)).round(2),
+      net_profit: sum(a, :profit).round(2)
+    }
+    
+    @portfolio = OpenStruct.new(h).freeze
+    
+  end
+  
+  def build_records()
+    
     # print out the coin name, qty,value in USD,value in Sterling, and BTC
-    a = @dx.all.inject([]) do |r, x|
+    @dx.all.inject([]) do |r, x|
 
       puts 'x: ' + x.inspect if @debug
       coin = @ccf.find(x.title)
@@ -63,19 +137,20 @@ class MyCoins
       value_usd = (usd_rate * x.qty.to_f).round(2)
       
       h = {
+        title: x.title,         
         rank: coin.rank.to_i,
-        name: x.title, 
         qty: x.qty,
         btc_price: x.btc_price,
         paid: "%.2f" % paid,
         value_usd: "%.2f" % value_usd
       }
       
-
       mycurrency = if @mycurrency and @mycurrency != 'USD' then
         
-        local_value = ((usd_rate * x.qty.to_f) * @jer.rate(@mycurrency)).round(2)  
-        h.merge!(('value_' + @mycurrency.downcase).to_sym => "%.2f" % local_value)
+        local_value = ((usd_rate * x.qty.to_f) \
+                       * @jer.rate(@mycurrency)).round(2)
+        h.merge!(('value_' \
+                  + @mycurrency.downcase).to_sym => "%.2f" % local_value)
         
         @mycurrency
         
@@ -95,42 +170,34 @@ class MyCoins
       r << h.merge!(h2)
       
     end
-
-    coins = a.sort_by{|x| x[:rank]}.map {|x| x.values}
     
-    labels = %w(Rank Name Qty btc_price) + ["paid(#{@mycurrency}):", 'value(USD):']
+  end
+  
+  def format_portfolio(r)
+    
+    coins = r.records.sort_by{|x| x[:rank]}.map {|x| x.values}
+    
+    labels = %w(Rank Name Qty btc_price) \
+        + ["paid(#{@mycurrency}):", 'value(USD):']
     labels << "value(#{@mycurrency}):" if @mycurrency    
     labels += ['Profit:', 'Profit (%):']
     
     puts 'labels: ' + labels.inspect if @debug
+    
     tf = TableFormatter.new(source: coins, labels: labels)
     out = "# " + @dx.title + "\n\n"
-    out << "last_updated: " + Time.now.strftime("%d/%m/%Y\n\n")
+    out << "last_updated: %s\n\n" % r.datetime
     out << tf.display
-       
-    invested = sum(a, :paid)    
-    total = sum(a, ('value_' + @mycurrency.downcase).to_sym)    
-    net_profit = sum(a, :profit)
     
-    gross_profit_list, losses_list = a.partition {|x| x[:profit].to_f > 0}
-    
-    gross_profit = sum(gross_profit_list, :profit)
-    losses = sum(losses_list, :profit)
-    
-    pct_gross_profit = 100 / (invested / gross_profit)
-    pct_losses = 100 / (invested / losses)
-    
-    
-    out << "\n\nInvested: %.2f %s" % [invested, @mycurrency]
-    out << "\nRevenue: %.2f %s" % [total, @mycurrency]    
-    out << "\n\nGross profit: %.2f %s (%%%.2f)" % [gross_profit, @mycurrency, pct_gross_profit]
-    out << "\nLosses: %.2f %s (%%%.2f)" % [losses, @mycurrency, pct_losses]    
-    out << "\n\nNet profit: %.2f %s" % [net_profit, @mycurrency]
+    out << "\n\nInvested: %.2f %s" % [r.invested, @mycurrency]
+    out << "\nRevenue: %.2f %s" % [r.revenue, @mycurrency]    
+    out << "\n\nGross profit: %.2f %s (%%%.2f)" % \
+        [r.gross_profit, @mycurrency, r.pct_gross_profit]
+    out << "\nLosses: %.2f %s (%%%.2f)" % [r.losses, @mycurrency, r.pct_losses]
+    out << "\n\nNet profit: %.2f %s" % [r.net_profit, @mycurrency]
     out
-
+    
   end
-  
-  private
   
   def sum(a, field)
     a.inject(0) {|r, x| r + x[field].to_f }

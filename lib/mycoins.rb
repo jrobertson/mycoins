@@ -67,10 +67,10 @@ class MyCoins
                  @mycurrency]
   end
   
-  def portfolio()
-        
+  def portfolio(order_by: :rank)
+       
     r = build_portfolio(@dx.title)
-    format_portfolio(r)
+    format_portfolio(r, order_by: order_by)
 
   end
   
@@ -94,7 +94,7 @@ class MyCoins
     
     if @portfolio and \
         DateTime.parse(@portfolio.datetime) + 60 > DateTime.now then
-      return @portfolio
+      return @portfolio      
     end
     
     a = build_records()
@@ -117,7 +117,7 @@ class MyCoins
       net_profit: sum(a, :profit).round(2)
     }
     
-    @portfolio = OpenStruct.new(h).freeze
+    @portfolio = OpenStruct.new(h)
     
   end
   
@@ -173,9 +173,10 @@ class MyCoins
     
   end
   
-  def format_portfolio(r)
+  def format_portfolio(r, order_by: :rank)
     
-    coins = r.records.sort_by{|x| x[:rank]}.map {|x| x.values}
+    coins = r.records.sort_by {|x| -x[order_by].to_f}.map {|x| x.values}
+    coins.reverse! if order_by == :rank
     
     labels = %w(Rank Name Qty btc_price) \
         + ["paid(#{@mycurrency}):", 'value(USD):']

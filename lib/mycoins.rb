@@ -23,9 +23,7 @@ class MyCoins
     if s =~ /<\?dynarex / then
 
       @dx = Dynarex.new
-      @dx.import s
-      
-      puts @dx.to_xml pretty: true
+      @dx.import s     
 
     end
 
@@ -64,8 +62,15 @@ class MyCoins
   # return the value of a coin given either the qty or purchase amount in BTC
   #
   def price(coin_name, qty, btc: nil, date: nil)
-    coin = @ccf.find(coin_name)
-    "%.2f %s" % [(coin.price_usd.to_f * qty.to_f) * @jer.rate(@mycurrency), 
+    
+    price_usd = if date then
+      @ccf.price coin_name, date
+    else
+      coin = @ccf.find(coin_name)      
+      coin.price_usd.to_f      
+    end
+  
+    "%.2f %s" % [(price_usd * qty.to_f) * @jer.rate(@mycurrency), 
                  @mycurrency]
   end
   
@@ -80,7 +85,6 @@ class MyCoins
     
     r = build_portfolio(@dx.title)
     dx = Dynarex.new    
-    puts 'r.records: ' + r.records.inspect
     dx.import r.records    
     
     h = r.to_h
@@ -106,6 +110,8 @@ class MyCoins
     gross_profit_list, losses_list = a.partition {|x| x[:profit].to_f > 0}
     gross_profit, losses = [gross_profit_list, losses_list]\
         .map{|x| sum(x, :profit)}
+    pct_gross_profit = (100 / (invested / gross_profit)).round(2)
+    pct_losses = (100 / (invested / losses)).round(2)
 
     h = {
       title: title,
@@ -115,9 +121,10 @@ class MyCoins
       invested: invested,
       value: sum(a, ('value_' + @mycurrency.downcase).to_sym),      
       gross_profit: gross_profit.round(2), losses: losses.round(2),
-      pct_gross_profit: (100 / (invested / gross_profit)).round(2),
-      pct_losses: (100 / (invested / losses)).round(2),
-      net_profit: sum(a, :profit).round(2)
+      pct_gross_profit: pct_gross_profit,
+      pct_losses: pct_losses,
+      net_profit: sum(a, :profit).round(2),
+      pct_net_profit: pct_gross_profit + pct_losses
     }
     
     @portfolio = OpenStruct.new(h)
@@ -143,9 +150,9 @@ class MyCoins
         title: x.title,         
         rank: coin.rank.to_i,
         qty: "%.2f" % x.qty,
-        btc_price:  "%.4f" % x.btc_price,
-        paid: "%.2f" % paid,
-        value_usd: "%.2f" % value_usd
+        btc_price:  "%.5f" % x.btc_price,
+        paid: "%.0f" % paid,
+        value_usd: "%.0f" % value_usd
       }
       
       mycurrency = if @mycurrency and @mycurrency != 'USD' then
@@ -163,6 +170,7 @@ class MyCoins
         
       end
       
+      puts 'local_value: ' + local_value.inspect if @debug
       value = (local_value || value_usd)
       
       h2 = {
@@ -194,10 +202,10 @@ class MyCoins
     out << tf.display
     
     out << "\n\nInvested: %.2f %s" % [r.invested, @mycurrency]
-    out << "\n\nGross profit: %.2f %s (%%%.2f)" % \
+    out << "\n\nGross profit: %.2f %s (%.2f%%)" % \
         [r.gross_profit, @mycurrency, r.pct_gross_profit]
-    out << "\nLosses: %.2f %s (%%%.2f)" % [r.losses, @mycurrency, r.pct_losses]
-    out << "\n\nNet profit: %.2f %s" % [r.net_profit, @mycurrency]
+    out << "\nLosses: %.2f %s (%.2f%%)" % [r.losses, @mycurrency, r.pct_losses]
+    out << "\n\nNet profit: %.2f %s (%.2f%%)" % [r.net_profit, @mycurrency, r.pct_net_profit]
     out << "\nCurrent value: %.2f %s" % [r.value, @mycurrency]        
     out
     

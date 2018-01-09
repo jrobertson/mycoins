@@ -24,6 +24,8 @@ class MyCoins
 
       @dx = Dynarex.new
       @dx.import s
+      
+      puts @dx.to_xml pretty: true
 
     end
 
@@ -36,7 +38,7 @@ class MyCoins
 
     mycoins = @dx.all.inject([]) do |r, mycoin|
       
-      found = c.find mycoin.title
+      found = c.find mycoin.title.gsub(/\s+\[[^\]]+\]/,'')
       found ? r << found.symbol : r
 
     end
@@ -63,7 +65,7 @@ class MyCoins
   #
   def price(coin_name, qty, btc: nil, date: nil)
     coin = @ccf.find(coin_name)
-    "%.2f %s" % [(coin.price_usd.to_f * qty) * @jer.rate(@mycurrency), 
+    "%.2f %s" % [(coin.price_usd.to_f * qty.to_f) * @jer.rate(@mycurrency), 
                  @mycurrency]
   end
   
@@ -78,7 +80,8 @@ class MyCoins
     
     r = build_portfolio(@dx.title)
     dx = Dynarex.new    
-    dx.import r.records
+    puts 'r.records: ' + r.records.inspect
+    dx.import r.records    
     
     h = r.to_h
     h.delete :records
@@ -110,7 +113,7 @@ class MyCoins
       records: a,
       datetime: Time.now.strftime("%d/%m/%Y at %H:%M%p"),
       invested: invested,
-      revenue: sum(a, ('value_' + @mycurrency.downcase).to_sym),      
+      value: sum(a, ('value_' + @mycurrency.downcase).to_sym),      
       gross_profit: gross_profit.round(2), losses: losses.round(2),
       pct_gross_profit: (100 / (invested / gross_profit)).round(2),
       pct_losses: (100 / (invested / losses)).round(2),
@@ -127,7 +130,7 @@ class MyCoins
     @dx.all.inject([]) do |r, x|
 
       puts 'x: ' + x.inspect if @debug
-      coin = @ccf.find(x.title)
+      coin = @ccf.find(x.title.gsub(/\s+\[[^\]]+\]/,''))
       usd_rate = coin.price_usd.to_f      
 
       paid = ((x.qty.to_f * x.btc_price.to_f) * \
@@ -139,8 +142,8 @@ class MyCoins
       h = {
         title: x.title,         
         rank: coin.rank.to_i,
-        qty: x.qty,
-        btc_price: x.btc_price,
+        qty: "%.2f" % x.qty,
+        btc_price:  "%.4f" % x.btc_price,
         paid: "%.2f" % paid,
         value_usd: "%.2f" % value_usd
       }
@@ -178,7 +181,7 @@ class MyCoins
     coins = r.records.sort_by {|x| -x[order_by].to_f}.map {|x| x.values}
     coins.reverse! if order_by == :rank
     
-    labels = %w(Rank Name Qty btc_price) \
+    labels = %w(Name Rank Qty btc_price) \
         + ["paid(#{@mycurrency}):", 'value(USD):']
     labels << "value(#{@mycurrency}):" if @mycurrency    
     labels += ['Profit:', 'Profit (%):']
@@ -191,11 +194,11 @@ class MyCoins
     out << tf.display
     
     out << "\n\nInvested: %.2f %s" % [r.invested, @mycurrency]
-    out << "\nRevenue: %.2f %s" % [r.revenue, @mycurrency]    
     out << "\n\nGross profit: %.2f %s (%%%.2f)" % \
         [r.gross_profit, @mycurrency, r.pct_gross_profit]
     out << "\nLosses: %.2f %s (%%%.2f)" % [r.losses, @mycurrency, r.pct_losses]
     out << "\n\nNet profit: %.2f %s" % [r.net_profit, @mycurrency]
+    out << "\nCurrent value: %.2f %s" % [r.value, @mycurrency]        
     out
     
   end

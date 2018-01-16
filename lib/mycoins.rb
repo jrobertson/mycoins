@@ -27,19 +27,36 @@ class MyCoins
 
     end
 
-    c = CryptocoinFanboi.new
+
 
     puts '@dx.to_xml: ' + @dx.to_xml if @debug
 
     @mycurrency = (@dx.currency || mycurrency).upcase
     puts '@mycurrency: ' + @mycurrency.inspect if @debug
-
-    mycoins = @dx.all.inject([]) do |r, mycoin|
+    
+    coin_names = @dx.all.map{ |x| x.title.gsub(/\s+\[[^\]]+\]/,'')}.uniq
+    
+    @cache_file = File.join(filepath, 'mycoins_lookup.yaml')
+    
+    h = if File.exist? @cache_file then
+  
+      puts 'reading coins symbols frome the cache' if @debug
+      h2 = Psych.load(File.read(@cache_file))
+      puts 'h2: ' + h2.inspect if @debug
       
-      found = c.find mycoin.title.gsub(/\s+\[[^\]]+\]/,'')
-      found ? r << found.symbol : r
+      if (coin_names - h2.keys).empty? then
+        h2
+      else
+        fetch_symbols coin_names 
+      end
+      
+    else
 
+      fetch_symbols coin_names
     end
+    
+    puts 'h: ' + h.inspect if @debug
+    mycoins = h.values
 
     puts 'mycoins: ' + mycoins.inspect if @debug
     @ccf = CryptocoinFanboi.new(watch: mycoins)
@@ -181,6 +198,23 @@ class MyCoins
       r << h.merge!(h2)
       
     end
+    
+  end
+  
+  def fetch_symbols(coin_names)
+    
+    c = CryptocoinFanboi.new
+    
+    h = coin_names.inject({}) do |r, name|
+      
+      found = c.find name
+      r.merge(name => found.symbol)
+
+    end
+    
+    File.write @cache_file, h.to_yaml    
+
+    return h
     
   end
   

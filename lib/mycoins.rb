@@ -12,9 +12,9 @@ class MyCoins
   attr_accessor :mycurrency
 
   def initialize(source, date: nil, debug: false, 
-                 mycurrency: 'USD', filepath: 'mycoins')
+                 mycurrency: 'USD', filepath: 'mycoins', colored: true)
 
-    @debug, @filepath = debug, filepath
+    @debug, @filepath, @color = debug, filepath, colored
     
     @jer = JustExchangeRates.new(base: 'USD')
 
@@ -26,8 +26,6 @@ class MyCoins
       @dx.import s     
 
     end
-
-
 
     puts '@dx.to_xml: ' + @dx.to_xml if @debug
 
@@ -218,6 +216,26 @@ class MyCoins
     
   end
   
+  def format_table(source, markdown: markdown, labels: [])
+    
+    s = TableFormatter.new(source: source, labels: labels).display
+    
+    return s if @colored == false    
+
+    a = s.lines
+    
+    body = a[3..-2].map do |line|
+      
+      fields = line.split('|')   
+      
+      a2 = fields[-3..-1].map {|x| x[/^ +-/] ? x.red : x.green }
+      (fields[0..-4] + a2 ).join('|')  
+
+    end    
+    
+    (a[0..2] + body + [a[-1]]).join    
+  end
+  
   def format_portfolio(r, order_by: :rank)
     
     coins = r.records.sort_by {|x| -x[order_by].to_f}.map {|x| x.values}
@@ -230,11 +248,11 @@ class MyCoins
     
     puts 'labels: ' + labels.inspect if @debug
     
-    tf = TableFormatter.new(source: coins, labels: labels)
     out = "# " + @dx.title + "\n\n"
     out << "last_updated: %s\n\n" % r.datetime
-    out << tf.display
     
+    out << format_table(coins, labels: labels)
+        
     out << "\n\nInvested: %.2f %s" % [r.invested, @mycurrency]
     out << "\n\nGross profit: %.2f %s (%.2f%%)" % \
         [r.gross_profit, @mycurrency, r.pct_gross_profit]

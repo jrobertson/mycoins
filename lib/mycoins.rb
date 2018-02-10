@@ -122,9 +122,9 @@ class MyCoins
     a = build_records()
     
     invested = sum(a, :paid)
-    gross_profit_list, losses_list = a.partition {|x| x[:profit].to_f > 0}
+    gross_profit_list, losses_list = a.partition {|x| x[:roi].to_f > 0}
     gross_profit, losses = [gross_profit_list, losses_list]\
-        .map{|x| sum(x, :profit)}
+        .map{|x| sum(x, :roi)}
     pct_gross_profit = (100 / (invested / gross_profit)).round(2)
     pct_losses = (100 / (invested / losses)).round(2)
 
@@ -138,7 +138,7 @@ class MyCoins
       gross_profit: gross_profit.round(2), losses: losses.round(2),
       pct_gross_profit: pct_gross_profit,
       pct_losses: pct_losses,
-      net_profit: sum(a, :profit).round(2),
+      net_profit: sum(a, :roi).round(2),
       pct_net_profit: pct_gross_profit + pct_losses
     }
     
@@ -189,8 +189,8 @@ class MyCoins
       value = (local_value || value_usd)
       
       h2 = {
-        profit: "%.2f" % (value - paid).round(2),
-        pct_profit: "%.2f" % (((value - paid) / value) * 100).round(2)
+        roi: "%.2f" % (value - paid).round(2),
+        pct_roi: "%.2f" % (100 / (paid / (value - paid))).round(2)
       }
       
       r << h.merge!(h2)
@@ -244,7 +244,7 @@ class MyCoins
     labels = %w(Name Rank Qty btc_price) \
         + ["paid(#{@mycurrency}):", 'value(USD):']
     labels << "value(#{@mycurrency}):" if @mycurrency    
-    labels += ['Profit:', 'Profit (%):']
+    labels += ['ROI:', 'ROI (%):']
     
     puts 'labels: ' + labels.inspect if @debug
     

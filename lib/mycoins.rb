@@ -3,7 +3,6 @@
 # file: mycoins.rb
 
 require 'dynarex'
-require 'justexchangerates'
 require 'cryptocoin_fanboi'
 
 

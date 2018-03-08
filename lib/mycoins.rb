@@ -57,7 +57,7 @@ class MyCoins
     mycoins = h.values
 
     puts 'mycoins: ' + mycoins.inspect if @debug
-    @ccf = CryptocoinFanboi.new(watch: mycoins)
+    @ccf = CryptocoinFanboi.new(watch: mycoins, debug: debug)
 
   end
   
@@ -90,7 +90,8 @@ class MyCoins
   end
   
   def portfolio(order_by: :rank)
-       
+    
+    puts 'inside portfolio' if @debug
     r = build_portfolio(@dx.title)
     format_portfolio(r, order_by: order_by)
 
@@ -127,6 +128,9 @@ class MyCoins
         .map{|x| sum(x, :roi)}
     pct_gross_profit = (100 / (invested / gross_profit)).round(2)
     pct_losses = (100 / (invested / losses)).round(2)
+    total_value = sum(a, ('value_' + @mycurrency.downcase).to_sym)
+    rate = JustExchangeRates.new(base: 'GBP').rate('USD')
+    btc_val = (@ccf.price('bitcoin') / total_value * rate).round(4)
 
     h = {
       title: title,
@@ -134,7 +138,7 @@ class MyCoins
       records: a,
       datetime: Time.now.strftime("%d/%m/%Y at %H:%M%p"),
       invested: invested,
-      value: sum(a, ('value_' + @mycurrency.downcase).to_sym),      
+      value: total_value, btc_value: btc_val,
       gross_profit: gross_profit.round(2), losses: losses.round(2),
       pct_gross_profit: pct_gross_profit,
       pct_losses: pct_losses,
@@ -152,7 +156,17 @@ class MyCoins
     @dx.all.inject([]) do |r, x|
 
       puts 'x: ' + x.inspect if @debug
-      coin = @ccf.find(x.title.gsub(/\s+\[[^\]]+\]/,''))
+      title = x.title.gsub(/\s+\[[^\]]+\]/,'')
+      
+      if @debug then
+        puts 'title: '  + title.inspect
+        puts '@ccf: ' + @ccf.class.inspect
+      end
+      
+      coin = @ccf.find(title)
+      raise 'build_records error: coin nil' if coin.nil?
+      
+      puts 'coin: ' + coin.inspect if @debug
       usd_rate = coin.price_usd.to_f      
 
       paid = ((x.qty.to_f * x.btc_price.to_f) * \
@@ -257,8 +271,10 @@ class MyCoins
     out << "\n\nGross profit: %.2f %s (%.2f%%)" % \
         [r.gross_profit, @mycurrency, r.pct_gross_profit]
     out << "\nLosses: %.2f %s (%.2f%%)" % [r.losses, @mycurrency, r.pct_losses]
-    out << "\n\nNet profit: %.2f %s (%.2f%%)" % [r.net_profit, @mycurrency, r.pct_net_profit]
-    out << "\nCurrent value: %.2f %s" % [r.value, @mycurrency]        
+    out << "\n\nNet profit: %.2f %s (%.2f%%)" % [r.net_profit, @mycurrency, 
+                                                 r.pct_net_profit]
+    out << "\nCurrent value: %.2f %s (%s BTC)" % [r.value, @mycurrency, 
+                                                  r.btc_value]
     out
     
   end

@@ -130,7 +130,16 @@ class MyCoins
     pct_losses = (100 / (invested / losses)).round(2)
     total_value = sum(a, ('value_' + @mycurrency.downcase).to_sym)
     rate = JustExchangeRates.new(base: 'GBP').rate('USD')
-    btc_val = (@ccf.price('bitcoin') / total_value * rate).round(4)
+
+    btc = @ccf.price('bitcoin')
+    
+    if @debug then
+      puts 'rate: ' + rate.inspect
+      puts 'bicoin price: ' + btc.inspect
+      puts 'total value: ' + total_value.inspect
+    end    
+
+    btc_val = ((total_value * rate) / btc).round(4)
 
     h = {
       title: title,

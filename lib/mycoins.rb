@@ -232,6 +232,7 @@ class MyCoins
 
     end
     
+    FileUtils.mkdir_p File.dirname(@cache_file)
     File.write @cache_file, h.to_yaml    
 
     return h

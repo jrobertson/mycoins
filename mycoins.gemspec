@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'mycoins'
-  s.version = '0.3.2'
+  s.version = '0.3.3'
   s.summary = 'The mycoins gem calculates the current value ' + 
       'of your crypto-currency portfolio.'
   s.authors = ['James Robertson']

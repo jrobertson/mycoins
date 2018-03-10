@@ -7,6 +7,7 @@ require 'cryptocoin_fanboi'
 
 
 class MyCoins
+  include Colour
   
   attr_accessor :mycurrency
 
@@ -139,6 +140,7 @@ class MyCoins
     end    
 
     btc_val = ((total_value * rate) / btc).round(4)
+    
 
     h = {
       title: title,
@@ -188,8 +190,7 @@ class MyCoins
         rank: coin.rank.to_i,
         qty: "%.2f" % x.qty,
         btc_price:  "%.5f" % x.btc_price,
-        paid: "%.0f" % paid,
-        value_usd: "%.0f" % value_usd
+        paid: "%.0f" % paid
       }
       
       mycurrency = if @mycurrency and @mycurrency != 'USD' then
@@ -211,15 +212,15 @@ class MyCoins
       value = (local_value || value_usd)
       
       h2 = {
-        roi: "%.2f" % (value - paid).round(2),
-        pct_roi: "%.2f" % (100 / (paid / (value - paid))).round(2)
+        roi: "%s" % (value - paid).round(2),
+        pct_roi: "%s" % (100 / (paid / (value - paid))).round(2)
       }
       
       r << h.merge!(h2)
       
     end
     
-  end
+  end  
   
   def fetch_symbols(coin_names)
     
@@ -251,7 +252,7 @@ class MyCoins
       
       fields = line.split('|')   
       
-      a2 = fields[-3..-1].map {|x| x[/^ +-/] ? x.red : x.green }
+      a2 = fields[-3..-1].map {|x| c(x) }
       (fields[0..-4] + a2 ).join('|')  
 
     end    
@@ -265,8 +266,8 @@ class MyCoins
     coins.reverse! if order_by == :rank
     
     labels = %w(Name Rank Qty btc_price) \
-        + ["paid(#{@mycurrency}):", 'value(USD):']
-    labels << "value(#{@mycurrency}):" if @mycurrency    
+        + ["paid:"]
+    labels << "value:" if @mycurrency    
     labels += ['ROI:', 'ROI (%):']
     
     puts 'labels: ' + labels.inspect if @debug
@@ -275,13 +276,15 @@ class MyCoins
     out << "last_updated: %s\n\n" % r.datetime
     
     out << format_table(coins, labels: labels)
+    
+    out << "\nNote: paid and value columns displayed in " + @mycurrency
         
     out << "\n\nInvested: %.2f %s" % [r.invested, @mycurrency]
-    out << "\n\nGross profit: %.2f %s (%.2f%%)" % \
-        [r.gross_profit, @mycurrency, r.pct_gross_profit]
+    out << "\n\nGross profit: %s %s (%s)" % \
+        [c(r.gross_profit), @mycurrency, c(r.pct_gross_profit.to_s + "%")]
     out << "\nLosses: %.2f %s (%.2f%%)" % [r.losses, @mycurrency, r.pct_losses]
-    out << "\n\nNet profit: %.2f %s (%.2f%%)" % [r.net_profit, @mycurrency, 
-                                                 r.pct_net_profit]
+    out << "\n\nNet profit: %s %s (%s)" % [c(r.net_profit), @mycurrency, 
+                                                 c(r.pct_net_profit.to_s + "%")]
     out << "\nCurrent value: %.2f %s (%s BTC)" % [r.value, @mycurrency, 
                                                   r.btc_value]
     out

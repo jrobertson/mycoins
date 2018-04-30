@@ -14,7 +14,7 @@ class MyCoins
   def initialize(source, date: nil, debug: false, 
                  mycurrency: 'USD', filepath: 'mycoins', colored: true)
 
-    @debug, @filepath, @color = debug, filepath, colored
+    @debug, @filepath, @colored = debug, filepath, colored
     
     @jer = JustExchangeRates.new(base: 'USD')
 
@@ -69,6 +69,45 @@ class MyCoins
     File.write filepath, to_xml
     
   end
+  
+  def to_dx()
+    
+    r = build_portfolio(@dx.title)
+    dx = Dynarex.new    
+    dx.import r.records    
+    
+    h = r.to_h
+    h.delete :records
+    dx.summary.merge!(h)
+    
+    dx
+    
+  end
+  
+  def to_openstruct()
+    build_portfolio(@dx.title)
+  end
+  
+  def to_percentages()
+    
+    all = self.to_dx.to_a
+    val = ('value_' + @mycurrency.downcase).to_sym
+    
+    a = all.map {|x| x[val].to_f }
+    sum = a.inject(&:+)
+    
+    a2 = all.map do |x| 
+      [x[:title].sub(/\s+\[[^\]]\]+/,''), (x[val].to_f).round(2)]
+    end.group_by(&:first).to_a
+    
+    a3 = a2.map do |x| 
+      [x.first, ((x[1].inject(0) {|r,y| r + y[1].to_f} / sum.to_f) * 100)\
+       .round(2)]
+    end
+    
+    a3.sort_by(&:last).reverse.to_h
+
+  end
 
   def to_s()
     @ccf.to_s
@@ -99,15 +138,7 @@ class MyCoins
   
   def to_xml()
     
-    r = build_portfolio(@dx.title)
-    dx = Dynarex.new    
-    dx.import r.records    
-    
-    h = r.to_h
-    h.delete :records
-    dx.summary.merge!(h)
-    
-    dx.to_xml pretty: true
+    self.to_dx().to_xml pretty: true
     
   end
   
@@ -153,7 +184,7 @@ class MyCoins
       pct_gross_profit: pct_gross_profit,
       pct_losses: pct_losses,
       net_profit: sum(a, :roi).round(2),
-      pct_net_profit: pct_gross_profit + pct_losses
+      pct_net_profit: (pct_gross_profit + pct_losses).round(2)
     }
     
     @portfolio = OpenStruct.new(h)
@@ -284,7 +315,7 @@ class MyCoins
         [c(r.gross_profit), @mycurrency, c(r.pct_gross_profit.to_s + "%")]
     out << "\nLosses: %.2f %s (%.2f%%)" % [r.losses, @mycurrency, r.pct_losses]
     out << "\n\nNet profit: %s %s (%s)" % [c(r.net_profit), @mycurrency, 
-                                                 c(r.pct_net_profit.to_s + "%")]
+                                                c(r.pct_net_profit.to_s + "%")]
     out << "\nCurrent value: %.2f %s (%s BTC)" % [r.value, @mycurrency, 
                                                   r.btc_value]
     out

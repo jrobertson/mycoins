@@ -178,6 +178,7 @@ class MyCoins
       mycurrency: @mycurrency,
       records: a,
       datetime: Time.now.strftime("%d/%m/%Y at %H:%M%p"),
+      btc_price: btc,
       invested: invested,
       value: total_value, btc_value: btc_val,
       gross_profit: gross_profit.round(2), losses: losses.round(2),
@@ -310,7 +311,8 @@ class MyCoins
     
     out << "\nNote: paid and value columns displayed in " + @mycurrency
         
-    out << "\n\nInvested: %.2f %s" % [r.invested, @mycurrency]
+    out << "\n\nBTC price: %.2f USD" % [r.btc_price]
+    out << "\nInvested: %.2f %s" % [r.invested, @mycurrency]
     out << "\n\nGross profit: %s %s (%s)" % \
         [c(r.gross_profit), @mycurrency, c(r.pct_gross_profit.to_s + "%")]
     out << "\nLosses: %.2f %s (%.2f%%)" % [r.losses, @mycurrency, r.pct_losses]

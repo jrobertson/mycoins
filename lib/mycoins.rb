@@ -9,6 +9,7 @@ require 'cryptocoin_fanboi'
 class MyCoins
   include Colour
   
+  attr_reader :ccf
   attr_accessor :mycurrency
 
   def initialize(source, date: nil, debug: false, 

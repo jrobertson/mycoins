@@ -137,6 +137,20 @@ class MyCoins
 
   end
   
+  # returns a Hash object containing the value as well as the percentage relative to the 
+  # total value of the portfolio for each cryptocurrency
+  #
+  def to_values()
+    
+    portfolio = build_portfolio()
+    
+    self.to_percentages.inject({}) do |r, x|
+      currency, pct = x
+      r.merge!(currency => [pct, ((portfolio.value * pct) / 100).round(2)])
+    end
+    
+  end
+  
   def to_xml()
     
     self.to_dx().to_xml pretty: true
@@ -145,7 +159,7 @@ class MyCoins
   
   private
   
-  def build_portfolio(title)
+  def build_portfolio(title='CryptoCurrency Portfolio ' + Time.now.year.to_s)
     
     if @portfolio and \
         DateTime.parse(@portfolio.datetime) + 60 > DateTime.now then
@@ -207,7 +221,12 @@ class MyCoins
       end
       
       coin = @ccf.find(title)
-      raise 'build_records error: coin nil' if coin.nil?
+      
+      if coin.nil? then
+        puts 'warning: build_records error: coin nil for title ' \
+            + title.inspect
+        return r
+      end
       
       puts 'coin: ' + coin.inspect if @debug
       usd_rate = coin.price_usd.to_f      
@@ -261,6 +280,7 @@ class MyCoins
     
     h = coin_names.inject({}) do |r, name|
       
+      puts 'name: ' + name.inspect if @debug
       found = c.find name
       r.merge(name => found.symbol)
 

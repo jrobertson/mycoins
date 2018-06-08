@@ -12,12 +12,14 @@ class MyCoins
   attr_reader :ccf
   attr_accessor :mycurrency
 
-  def initialize(source, date: nil, debug: false, 
-                 mycurrency: 'USD', filepath: 'mycoins', colored: true)
+  def initialize(source, date: nil, debug: false, mycurrency: 'USD', 
+                 filepath: 'mycoins', colored: true, exchangerate_key: nil)
 
     @debug, @filepath, @colored = debug, filepath, colored
+    @exchangerate_key = exchangerate_key
     
-    @jer = JustExchangeRates.new(base: 'USD')
+    @jer = JustExchangeRates.new(base: 'USD', debug: @debug, 
+                                 app_id: exchangerate_key)
 
     s = RXFHelper.read(source).first
 
@@ -58,7 +60,8 @@ class MyCoins
     mycoins = h.values
 
     puts 'mycoins: ' + mycoins.inspect if @debug
-    @ccf = CryptocoinFanboi.new(watch: mycoins, debug: debug)
+    @ccf = CryptocoinFanboi.new(watch: mycoins, debug: debug, 
+                                exchangerate_key: exchangerate_key)
 
   end
   
@@ -137,8 +140,8 @@ class MyCoins
 
   end
   
-  # returns a Hash object containing the value as well as the percentage relative to the 
-  # total value of the portfolio for each cryptocurrency
+  # returns a Hash object containing the value as well as the percentage 
+  # relative to the total value of the portfolio for each cryptocurrency
   #
   def to_values()
     
@@ -175,7 +178,7 @@ class MyCoins
     pct_gross_profit = (100 / (invested / gross_profit)).round(2)
     pct_losses = (100 / (invested / losses)).round(2)
     total_value = sum(a, ('value_' + @mycurrency.downcase).to_sym)
-    rate = JustExchangeRates.new(base: 'GBP').rate('USD')
+    rate = JustExchangeRates.new(base: 'GBP', app_id: @exchangerate_key).rate('USD')
 
     btc = @ccf.price('bitcoin')
     
@@ -276,7 +279,7 @@ class MyCoins
   
   def fetch_symbols(coin_names)
     
-    c = CryptocoinFanboi.new
+    c = CryptocoinFanboi.new debug: @debug
     
     h = coin_names.inject({}) do |r, name|
       
